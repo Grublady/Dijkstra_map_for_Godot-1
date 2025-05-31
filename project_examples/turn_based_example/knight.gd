@@ -4,9 +4,9 @@ extends Node2D
 ## on the map was clicked, so long as the cell is within the known move range and movement isn't
 ## already in progress.
 
-@export var energy: float = 10.0  ## Defines how far the knight can move within a turn
-@export var speed: float = 30.0  ## Speed multiplier during movement
-@export var map: ExampleDijkstraTileMap  ## Base tilemap that the knight navigates within
+@export var energy: float = 10.0 ## Defines how far the knight can move within a turn
+@export var speed: float = 30.0 ## Speed multiplier during movement
+@export var map: ExampleDijkstraTileMap ## Base tilemap that the knight navigates within
 ## Define weights for terrain types, so certain terrains can be passed through more or less easily.
 ## A value of INF means that the terrain type cannot be moved through.
 @export var tile_terrain_weights := {
@@ -29,7 +29,7 @@ func _ready() -> void:
 ## If a path is defined, move along it, then find the new moveable area once the end is reached.
 func _process(delta: float) -> void:
 	if !path.is_empty():
-		var direction: Vector2 = position.direction_to(path[-1])
+		var direction := position.direction_to(path[-1])
 
 		# Apply speed modifier and move the character.
 		var terrain_type = map.get_tile_type_from_world_position(position)

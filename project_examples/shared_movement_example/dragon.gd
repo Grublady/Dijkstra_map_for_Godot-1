@@ -5,7 +5,7 @@ extends CharacterBody2D
 ## Emitted when the dragon moves to a new spot
 signal moved
 
-@export var map: ExampleSharedDijkstraTileMap  ## Base tilemap that the dragon navigates within
+@export var map: ExampleSharedDijkstraTileMap ## Base tilemap that the dragon navigates within
 
 
 ## On ready, start listening to TileMap cell selection events.

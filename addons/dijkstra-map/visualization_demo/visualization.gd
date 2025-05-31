@@ -1,9 +1,9 @@
 extends Node
 ## Whether to use the C# implementation or the GDScript one.
 @export var use_c_sharp: bool = false
-## Get easy references to the GDScript and C# gridmap objects.
-@onready var gdscript_gridmap = $gridmap
-@onready var c_sharp_gridmap = $"gridmap_c#"
+## Get references to the GDScript and C# gridmap objects.
+@onready var gdscript_gridmap = $Gridmap
+@onready var c_sharp_gridmap = $"GridmapC#"
 
 
 ## On ready, show only the required gridmap and stop processing the other one.

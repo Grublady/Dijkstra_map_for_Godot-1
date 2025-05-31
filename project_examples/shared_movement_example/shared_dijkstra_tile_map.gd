@@ -1,5 +1,5 @@
 class_name ExampleSharedDijkstraTileMap
-extends TileMap
+extends Node2D
 ## This node is responsible for creating and maintaining DijkstraMap objects for the TileMap it
 ## represents, one each for pikemen and archers.
 ##
@@ -18,15 +18,14 @@ signal maps_recalculated
 ## List all types of tiles used in the example.
 enum Tiles { GRASS, WATER, BUSHES, ROAD, HIGHLIGHT }
 ## Known tile positions within the TileSet atlas.
-const TILE_ATLAS_COORDS = {
+const TILE_ATLAS_COORDS: Dictionary[Tiles, Vector2i] = {
 	Tiles.GRASS: Vector2i(0, 0),
 	Tiles.WATER: Vector2i(1, 0),
 	Tiles.BUSHES: Vector2i(2, 0),
 	Tiles.ROAD: Vector2i(3, 0),
 	Tiles.HIGHLIGHT: Vector2i(0, 1)
 }
-const TILE_LAYER = 0  ## This is the only TileMap layer used in this example
-const TILE_SET_SOURCE_ID = 0  ## ID of the TileSetSource used in our TileSet to provide tile options
+const TILE_SET_SOURCE_ID = 0 ## ID of the TileSetSource used in our TileSet to provide tile options
 ## For this example, only these tile types will be considered for pathfinding.
 const WALKABLE_TILE_TYPES = [Tiles.GRASS, Tiles.BUSHES, Tiles.ROAD]
 ## Define weights for terrain types, so certain terrains can be passed through more or less easily.
@@ -35,15 +34,17 @@ const WALKABLE_TILE_TYPES = [Tiles.GRASS, Tiles.BUSHES, Tiles.ROAD]
 ## could move these out to the individual character scenes for more customizability.
 @export var tile_terrain_weights := {Tiles.GRASS: 1.0, Tiles.BUSHES: 2.0, Tiles.ROAD: 0.5}
 
-@export var dragon: CharacterBody2D  ## Dragon character; when it moves, we recalculate the map
+@export var dragon: CharacterBody2D ## Dragon character; when it moves, we recalculate the map
 
 ## DijkstraMap shared across Pikemen instances for pathfinding calculations.
-var dijkstra_map_for_pikemen: DijkstraMap = DijkstraMap.new()
+var dijkstra_map_for_pikemen := DijkstraMap.new()
 ## DijkstraMap shared across Archer instances for pathfinding calculations.
-var dijkstra_map_for_archers: DijkstraMap = DijkstraMap.new()
+var dijkstra_map_for_archers := DijkstraMap.new()
 
-var _position_to_id: Dictionary = {}  # Mapping of TileMap cell positions to DijkstraMap node ids
-var _id_to_position: Dictionary = {}  # Reverse mapping of node ids to cell positions
+var _position_to_id: Dictionary[Vector2i, int] = {} # Maps cell positions to DijkstraMap node ids
+var _id_to_position: Dictionary[int, Vector2i] = {} # Reverse mapping of node ids to cell positions
+
+@onready var main_tile_layer: TileMapLayer = %MainTileLayer
 
 
 ## Set up the DijkstraMaps with terrain values taken from the TileMap.
@@ -56,27 +57,27 @@ func _ready() -> void:
 	# benefit of leaving out nodes that don't need to be there (e.g. water since our characters
 	# can't swim) for a bit less overhead and simpler calculations. Plus we can more easily adjust
 	# the parameters to meet our needs. See the turn based example for a shortcut implementation.
-	var walkable_tiles: Array = []
+	var walkable_tiles: Array[Vector2i] = []
 	for tile_type in WALKABLE_TILE_TYPES:
-		walkable_tiles += get_used_cells_by_id(
-			TILE_LAYER, TILE_SET_SOURCE_ID, TILE_ATLAS_COORDS[tile_type]
+		walkable_tiles += main_tile_layer.get_used_cells_by_id(
+			TILE_SET_SOURCE_ID, TILE_ATLAS_COORDS[tile_type]
 		)
 
 	# Now we insert the points
-	var id: int = 0
+	var id := 0
 	for pos in walkable_tiles:
 		id += 1
 		_id_to_position[id] = pos
 		_position_to_id[pos] = id
 		# We also need to specify a terrain type for the tile.
 		# Terrain types can then have different weights whenever the DijkstraMap is recalculated.
-		var terrain_type: int = get_tile_type_from_cell_position(pos)
+		var terrain_type := get_tile_type_from_cell_position(pos)
 		dijkstra_map_for_archers.add_point(id, terrain_type)
 
 	# Now we need to connect the points with connections.
 	# Each connection has a source point, target point, and a cost.
-	var orthogonal: Array = [Vector2i.DOWN, Vector2i.UP, Vector2i.LEFT, Vector2i.RIGHT]
-	var diagonal: Array = [
+	var orthogonal: Array[Vector2i] = [Vector2i.DOWN, Vector2i.UP, Vector2i.LEFT, Vector2i.RIGHT]
+	var diagonal: Array[Vector2i] = [
 		Vector2i.DOWN + Vector2i.LEFT,
 		Vector2i.UP + Vector2i.LEFT,
 		Vector2i.DOWN + Vector2i.RIGHT,
@@ -84,11 +85,11 @@ func _ready() -> void:
 	]
 	# Pair the defined directions with a cost value for each; orthogonal nodes will cost 1 unit to
 	# move, whereas diagonal ones will cost sqrt(2). This is designed to be easily looped through.
-	var directions_costs: Array = [[orthogonal, 1.0], [diagonal, sqrt(2.0)]]
+	var directions_costs: Array[Array] = [[orthogonal, 1.0], [diagonal, sqrt(2.0)]]
 
 	# Start with the position of each tile.
 	for pos in walkable_tiles:
-		var id_of_current_tile: int = _position_to_id[pos]
+		var id_of_current_tile := _position_to_id[pos]
 
 		# We loop through neighboring tiles and add connections for each one.
 		# NOTE: costs are a measure of time. They are distance/speed.
@@ -96,8 +97,8 @@ func _ready() -> void:
 			var directions: Array = directions_costs_pair[0]
 			var cost: float = directions_costs_pair[1]
 
-			for offset in directions:
-				var pos_of_neighbour: Vector2i = pos + offset
+			for offset: Vector2i in directions:
+				var pos_of_neighbour := pos + offset
 				var id_of_neighbour: int = _position_to_id.get(pos_of_neighbour, -1)
 				# We skip adding the connection if the point does not exist.
 				if id_of_neighbour == -1:
@@ -128,7 +129,8 @@ func _ready() -> void:
 ## pikemen and archers.
 func recalculate_dijkstra_maps() -> void:
 	# Which node is the dragon currently on?
-	var dragon_position_id: int = _position_to_id.get(local_to_map(dragon.position), 0)
+	var dragon_position_id: int = _position_to_id.get(
+		main_tile_layer.local_to_map(dragon.position), 0)
 	# - We want pikemen to charge the dragon's position head on.
 	# - We .recalculate() the DijkstraMap.
 	# - First argument is the origin (by default) or destination (i.e. the ID of the point where
@@ -140,7 +142,7 @@ func recalculate_dijkstra_maps() -> void:
 		"terrain_weights": tile_terrain_weights, "input_is_destination": true
 	}
 
-	var res: int = dijkstra_map_for_pikemen.recalculate(dragon_position_id, optional_parameters)
+	var res := dijkstra_map_for_pikemen.recalculate(dragon_position_id, optional_parameters)
 	assert(res == 0)
 	# Now the map has recalculated for pikemen and we can access the data.
 
@@ -153,9 +155,7 @@ func recalculate_dijkstra_maps() -> void:
 	res = dijkstra_map_for_archers.recalculate(dragon_position_id, optional_parameters)
 	assert(res == 0)
 	# Now we get IDs of all points safe distance from dragon_position_id, but within firing range
-	var stand_over_here: PackedInt32Array = (
-		dijkstra_map_for_archers.get_all_points_with_cost_between(4.0, 5.0)
-	)
+	var stand_over_here := dijkstra_map_for_archers.get_all_points_with_cost_between(4.0, 5.0)
 	optional_parameters = {"terrain_weights": tile_terrain_weights, "input_is_destination": true}
 	# And we pass those points as new destinations for the archers to walk towards
 	res = dijkstra_map_for_archers.recalculate(
@@ -177,7 +177,7 @@ func get_tileset_atlas_pos(tile_type: int) -> Vector2i:
 ## If possible, get the tile type given a cell position within the tilemap.
 ## Returns -1 if the type isn't found.
 func get_tile_type_from_cell_position(cell_pos: Vector2i) -> int:
-	var tile_type = TILE_ATLAS_COORDS.find_key(get_cell_atlas_coords(TILE_LAYER, cell_pos))
+	var tile_type = TILE_ATLAS_COORDS.find_key(main_tile_layer.get_cell_atlas_coords(cell_pos))
 	# Explicit null check to include 0 case
 	return tile_type if tile_type != null else -1
 
@@ -185,7 +185,7 @@ func get_tile_type_from_cell_position(cell_pos: Vector2i) -> int:
 ## If possible, get the tile type given a world position that may be within the tilemap's bounds.
 ## Returns -1 if the type isn't found.
 func get_tile_type_from_world_position(world_pos: Vector2) -> int:
-	return get_tile_type_from_cell_position(local_to_map(world_pos))
+	return get_tile_type_from_cell_position(main_tile_layer.local_to_map(world_pos))
 
 
 ## Given a world position, calculate a speed multiplier based on the terrain weight for the tile at
@@ -197,40 +197,40 @@ func get_speed_modifier(world_pos: Vector2) -> float:
 ## Given the position of a pikeman, find an immediate destination for it to try to move to.
 ## Returns null if there is no valid target position.
 func get_target_for_pikeman(pos: Vector2):
-	var map_coords: Vector2i = local_to_map(pos)
+	var map_coords := main_tile_layer.local_to_map(pos)
 
 	# We look up in the Dijkstra map where the pikeman should go next
-	var target_id: int = dijkstra_map_for_pikemen.get_direction_at_point(
+	var target_id := dijkstra_map_for_pikemen.get_direction_at_point(
 		_position_to_id.get(map_coords, 0)
 	)
 	# If dragon_position_id is inaccessible from current position, then Dijkstra map
 	# spits out -1, and we don't move.
 	if target_id == -1:
 		return null
-	var target_coords: Vector2 = _id_to_position[target_id]
-	return map_to_local(target_coords)
+	var target_coords := _id_to_position[target_id]
+	return main_tile_layer.map_to_local(target_coords)
 
 
 ## Given the position of an archer, find an immediate destination for it to try to move to.
 ## Returns null if there is no valid target position.
 func get_target_for_archer(pos: Vector2):
-	var map_coords: Vector2i = local_to_map(pos)
+	var map_coords := main_tile_layer.local_to_map(pos)
 
 	# We look up in the Dijkstra map where the archer should go next
-	var target_id: int = dijkstra_map_for_archers.get_direction_at_point(
+	var target_id := dijkstra_map_for_archers.get_direction_at_point(
 		_position_to_id.get(map_coords, 0)
 	)
 	# If dragon_position_id is inaccessible from current position, then Dijkstra map
 	# spits out -1, and we don't move.
 	if target_id == -1:
 		return null
-	var target_coords: Vector2 = _id_to_position[target_id]
-	return map_to_local(target_coords)
+	var target_coords := _id_to_position[target_id]
+	return main_tile_layer.map_to_local(target_coords)
 
 
 ## Announce clicked cell positions within the tilemap.
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed == false:
-		var local_pos: Vector2 = get_local_mouse_position()
-		var cell_pos: Vector2i = local_to_map(local_pos)
+		var local_pos := get_local_mouse_position()
+		var cell_pos := main_tile_layer.local_to_map(local_pos)
 		cell_selected.emit(cell_pos, local_pos)

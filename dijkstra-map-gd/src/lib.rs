@@ -660,15 +660,21 @@ impl DijkstraMap {
                     .collect();
             }
             godot::builtin::VariantType::ARRAY => {
-                for i in origin.to::<godot::builtin::VariantArray>().iter_shared() {
-                    match i.try_to::<i64>() {
-                        Ok(intval) => res_origins.push(PointId(intval as i32)),
-                        Err(_) => type_warning(
-                            "element of 'origin'",
-                            VariantType::INT,
-                            i.get_type(),
-                            line!(),
-                        ),
+                if let Ok(int_arr) = origin.try_to::<godot::builtin::Array<i32>>() {      
+                    for i in int_arr.iter_shared() {
+                        res_origins.push(PointId(i as i32))
+                    }
+                }else{
+                    for i in origin.to::<godot::builtin::VariantArray>().iter_shared() {
+                        match i.try_to::<i64>() {
+                            Ok(intval) => res_origins.push(PointId(intval as i32)),
+                            Err(_) => type_warning(
+                                "element of 'origin'",
+                                VariantType::INT,
+                                i.get_type(),
+                                line!(),
+                            ),
+                        }
                     }
                 }
             }

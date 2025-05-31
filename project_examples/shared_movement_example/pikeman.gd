@@ -5,7 +5,7 @@ extends CharacterBody2D
 ## that are in the way (if they have a 'push' method defined).
 
 @export var speed: float = 40.0
-@export var map: ExampleSharedDijkstraTileMap  ## Base tilemap that the archer navigates within
+@export var map: ExampleSharedDijkstraTileMap ## Base tilemap that the archer navigates within
 
 ## Track an immediate position to move toward (Vector2 or null if no target).
 var target_position = null
@@ -19,10 +19,10 @@ func _ready():
 ## If a target position is defined, move toward it, then find a new target once it is reached.
 func _process(delta: float) -> void:
 	if target_position != null:
-		var direction: Vector2 = position.direction_to(target_position)
+		var direction := position.direction_to(target_position)
 
 		# Apply speed modifier and move the character.
-		var speed_modifier: float = map.get_speed_modifier(position)
+		var speed_modifier := map.get_speed_modifier(position)
 		var collision: KinematicCollision2D = move_and_collide(
 			direction * speed * speed_modifier * delta
 		)
