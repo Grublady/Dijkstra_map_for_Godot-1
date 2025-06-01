@@ -29,21 +29,22 @@ public partial class gridmap_c_sharp : Node2D
 	private const int MaxVisualCost = 31;
 	private Rect2 TileMapRect = new Rect2(0, 0, 23, 19);
 
-	[Export]
-	public TileMapLayer MainTileLayer;
-	[Export]
-	public TileMapLayer CostTileLayer;
-	[Export]
-	public TileMapLayer DirectionTileLayer;
+	private TileMapLayer MainTileLayer;
+	private TileMapLayer CostsTileLayer;
+	private TileMapLayer DirectionsTileLayer;
 
 	private readonly DijkstraMap _dijkstraMap = new DijkstraMap();
-    private readonly Dictionary<int, Vector2> _idToPos = new Dictionary<int, Vector2>();
-    private Dictionary<Vector2, int> _posToId = new Dictionary<Vector2, int>();
-    private int _tileToDraw = 0;
-    private bool _dragging = false;
+	private readonly Dictionary<int, Vector2> _idToPos = new Dictionary<int, Vector2>();
+	private Dictionary<Vector2, int> _posToId = new Dictionary<Vector2, int>();
+	private int _tileToDraw = 0;
+	private bool _dragging = false;
 
-    public override void _Ready()
+	public void Setup()
 	{
+		MainTileLayer = GetNode<TileMapLayer>("%MainTileLayer");
+		CostsTileLayer = GetNode<TileMapLayer>("%CostsTileLayer");
+		DirectionsTileLayer = GetNode<TileMapLayer>("%DirectionsTileLayer");
+		
 		var @event = new InputEventMouseButton();
 		@event.ButtonIndex = MouseButton.Left;
 		if (!InputMap.HasAction("left_mouse_button"))
@@ -76,16 +77,16 @@ public partial class gridmap_c_sharp : Node2D
 		});
 
 		var costs = _dijkstraMap.GetCostMap();
-		CostTileLayer.Clear();
+		CostsTileLayer.Clear();
 
 		foreach (var id in costs.Keys)
 		{
 			var cost = Mathf.Clamp(costs[id], 0, MaxVisualCost);
-			CostTileLayer.SetCell((Vector2I)_idToPos[id], (int)TileAtlases.Gradient, GetTileSetAtlasPosForCostValue((int)cost));
+			CostsTileLayer.SetCell((Vector2I)_idToPos[id], (int)TileAtlases.Gradient, GetTileSetAtlasPosForCostValue((int)cost));
 		}
 
 		var dirIds = _dijkstraMap.GetDirectionMap();
-		DirectionTileLayer.Clear();
+		DirectionsTileLayer.Clear();
 
 		foreach (var id in dirIds.Keys)
 		{
@@ -93,7 +94,7 @@ public partial class gridmap_c_sharp : Node2D
 			var dir = (
 				_idToPos.ContainsKey(dirIds[id]) ? (Vector2I)_idToPos[dirIds[id]] : new Vector2I(int.MaxValue, int.MaxValue)
 			) - pos;
-			DirectionTileLayer.SetCell((Vector2I)_idToPos[id], (int)TileAtlases.Main, GetArrowTileAtlasPosForDirection(dir));
+			DirectionsTileLayer.SetCell((Vector2I)_idToPos[id], (int)TileAtlases.Main, GetArrowTileAtlasPosForDirection(dir));
 		}
 	}
 
@@ -143,7 +144,7 @@ public partial class gridmap_c_sharp : Node2D
 
 	public void OnVisualizationSelectionItemSelected(int index)
 	{
-		var visLayers = new Array<TileMapLayer> { CostTileLayer, DirectionTileLayer };
+		var visLayers = new Array<TileMapLayer> { CostsTileLayer, DirectionsTileLayer };
 
 		for (int i = 0; i < visLayers.Count; i++)
 		{

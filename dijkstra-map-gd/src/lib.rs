@@ -25,7 +25,19 @@ use godot::prelude::*;
 struct MyExtension;
 
 #[gdextension]
-unsafe impl ExtensionLibrary for MyExtension {}
+unsafe impl ExtensionLibrary for MyExtension {
+    fn override_wasm_binary() -> Option<&'static str> {
+        // Tell Godot which wasm file to load depending on the build features & profile.
+        let threading = if cfg!(feature = "nothreads") { "nothreads" } else { "threads" };
+        let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
+        Some(match (threading, profile) {
+            ("threads", "debug") =>     "dijkstra_map_gd.web_threads.debug.wasm",
+            ("threads", "release") =>   "dijkstra_map_gd.web_threads.release.wasm",
+            ("nothreads", "debug") =>   "dijkstra_map_gd.web_nothreads.debug.wasm",
+            _ =>                        "dijkstra_map_gd.web_nothreads.release.wasm"
+        })
+    }
+}
 
 /// Integer representing success in gdscript
 const OK: i64 = 0;

@@ -21,8 +21,9 @@ Note that the [API](./addons/dijkstra-map/doc/index.md) is now stable! Some feat
 Note: when installing pre-compiled libraries, we support
 
 - On linux: Ubuntu 20.04 or higher
-- On macos: The latest macOS version (11 at the time of writing)
+- On macos: ~~The latest macOS version (11 at the time of writing)~~ currently unsupported, but binaries can be built for macOS systems; see [Building from GitHub](#method-2-from-github).
 - On windows: Windows 10 or higher (presumably)
+- On the web: All modern browsers that support [Godot Web Exports](https://docs.godotengine.org/en/latest/tutorials/export/exporting_for_web.html)
 
 ### Method 1: From the Asset Store (Recommended)
 
@@ -42,18 +43,23 @@ This will work for linux x64, macos x86 and windows x64 for godot 3.5.1 (for ano
 
 ### Method 2: from Github
 
-**Note**: on linux x64, macos x86 or windows x64, you may skip steps 2-3 and use the pre-compiled libraries in `addons/dijkstra-map/dijkstra_map_library/bin/<os-name>`. They may be slightly outdated though.
+**Note**: on linux x64, ~~macos x86,~~ windows x64, and WebAssembly, you may skip steps 2-5 and use the pre-compiled libraries in `addons/dijkstra-map/dijkstra_map_library/bin/`. They may be slightly outdated though.
 
 1. Clone this repository.
 2. Follow the gdext (Rust bindings for Godot 4) setup steps [here](https://godot-rust.github.io/book/intro/setup.html#rust).
    * Install [rustup](https://rustup.rs/) for the Rust toolchain.
-3. Run `cargo build --release`. This will build the library in `target/release` (for example, on windows: `target/release/dijkstra_map_gd.dll`).
+3. If your platform is already supported by our [build script](tools/build_platform.sh) (`build_platform.sh`), execute it to run through the build process. For example, for a Windows release run `./tools/build_platform.sh windows release`; This will build the library and automatically move it to `addons/dijkstra-map/dijkstra_map_library/bin` under the correct filename.
+ 
+    If a manual build is required, continue to step 4.
+4. To build manually for your system: run `cargo build --release`. This will build the library in `target/release` (for example, on Windows: `target/release/dijkstra_map_gd.dll`). Or to build for a specifc platform, run `cargo build --release --target <platform>`, which will place the output file in a directory for that platform.
     
 	Note that this might take some time as it compiles all the dependencies for the first time.
 
-    Copy the resulting library to `addons/dijkstra-map/dijkstra_map_library/bin/<os-name>`.
-4. Copy the `addons/dijkstra-map` directory into your project's `res://addons` directory.
-5. Add your binary file path into the `res://addons/dijkstra-map/dijkstra_map/DijkstraMap.gdextension` file. This file tells Godot which binary to use for which system. For more info see the [GDExtension C++ example in Godot's documentation](https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/gdextension_cpp_example.html).
+    Copy the resulting library to `addons/dijkstra-map/dijkstra_map_library/bin/` and rename it to `dijkstra_map_gd.<platform>.release.<extension>`.
+
+    This process can also be done for debug builds too! Just remove the `--release` flag, and the resulting binaries will be compiled for debug mode instead.
+5. Add your binary file path into the `res://addons/dijkstra-map/dijkstra_map/DijkstraMap.gdextension` file if it's not already listed there. This file tells Godot which binary to use for which system. For more info see the [GDExtension C++ example in Godot's documentation](https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/gdextension_cpp_example.html).
+6. Copy the `addons/dijkstra-map` directory into your project's `res://addons` directory, and enable the addon through Godot's editor.
 
 
 ## Examples

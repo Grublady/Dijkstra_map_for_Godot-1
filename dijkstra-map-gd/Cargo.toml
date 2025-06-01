@@ -9,8 +9,15 @@ crate-type = ["cdylib"]
 
 [dependencies]
 fnv = "1.0.7"
-godot = "0.2.4"
 dijkstra_map = { path = "../dijkstra-map" }
+
+[dependencies.godot]
+git = "https://github.com/godot-rust/gdext"
+branch = "master"
+features = ["experimental-wasm", "lazy-function-tables"]
+
+[features]
+nothreads = ["godot/experimental-wasm-nothreads"]
 
 [build-dependencies]
 gdnative-doc = "0.0.6"

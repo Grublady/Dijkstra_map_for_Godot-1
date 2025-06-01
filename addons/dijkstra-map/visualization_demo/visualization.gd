@@ -1,34 +1,31 @@
 extends Node
+
+const GRIDMAP_C_SHARP_SCRIPT = "res://addons/dijkstra-map/visualization_demo/gridmap_c_sharp.cs"
 ## Whether to use the C# implementation or the GDScript one.
 @export var use_c_sharp: bool = false
-## Get references to the GDScript and C# gridmap objects.
-@onready var gdscript_gridmap = $Gridmap
-@onready var c_sharp_gridmap = $"GridmapC#"
+## Get a reference to the gridmap object which will use either a GDScript or C# script at runtime.
+@onready var gridmap: Node2D = %Gridmap
 
-
-## On ready, show only the required gridmap and stop processing the other one.
+## On ready, setup only the required gridmap script.
 func _ready():
-	gdscript_gridmap.visible = !use_c_sharp
-	gdscript_gridmap.process_mode = (
-		Node.PROCESS_MODE_INHERIT if !use_c_sharp else Node.PROCESS_MODE_DISABLED
-	)
-	c_sharp_gridmap.visible = use_c_sharp
-	c_sharp_gridmap.process_mode = (
-		Node.PROCESS_MODE_INHERIT if use_c_sharp else Node.PROCESS_MODE_DISABLED
-	)
+	if use_c_sharp:
+		gridmap.set_script(load(GRIDMAP_C_SHARP_SCRIPT))
+		gridmap.Setup()
+	else:
+		gridmap.setup()
 
 
 ## Pass the terrain item selection signal on to the correct gridmap node.
 func _on_terrain_selection_item_selected(index):
 	if use_c_sharp:
-		c_sharp_gridmap.OnTerrainSelectionItemSelected(index)
+		gridmap.OnTerrainSelectionItemSelected(index)
 	else:
-		gdscript_gridmap.on_terrain_selection_item_selected(index)
+		gridmap.on_terrain_selection_item_selected(index)
 
 
 ## Pass the visualization item selection signal on to the correct gridmap node.
 func _on_visualization_selection_item_selected(index):
 	if use_c_sharp:
-		c_sharp_gridmap.OnVisualizationSelectionItemSelected(index)
+		gridmap.OnVisualizationSelectionItemSelected(index)
 	else:
-		gdscript_gridmap.on_visualization_selection_item_selected(index)
+		gridmap.on_visualization_selection_item_selected(index)
