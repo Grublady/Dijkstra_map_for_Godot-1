@@ -26,11 +26,8 @@ extends Node
 
 ## List all types of tiles used in the example.
 enum Tiles { GROUND, WALL, PATH, START, END }
-## The TileMap utilizes three layers: one for wall & ground tiles, one for start & end points, and
-## one for path tiles between points.
-enum Layers { MAIN, PATH, POINTS }
 ## Known tile positions within the TileSet atlas.
-const TILE_ATLAS_COORDS = {
+const TILE_ATLAS_COORDS: Dictionary[Tiles, Vector2i] = {
 	Tiles.GROUND: Vector2i(0, 0),
 	Tiles.WALL: Vector2i(1, 0),
 	Tiles.PATH: Vector2i(2, 0),
@@ -48,8 +45,10 @@ var maze_nodes: Array[Array] = []  ## 2D array initialized to false values, set 
 var start_point := Vector2i(NAN, NAN)  ## Point to pathfind from
 var end_points: Array[Vector2i]  ## Point or points to pathfind to
 
-## Store references to the tilemap and certain UI inputs and labels.
-@onready var tilemap: TileMap = $TileMap
+## Store references to the tilemap layers and certain UI inputs and labels.
+@onready var main_tile_layer: TileMapLayer = %MainTileLayer
+@onready var path_tile_layer: TileMapLayer = %PathTileLayer
+@onready var points_tile_layer: TileMapLayer = %PointsTileLayer
 @onready var seed_input: SpinBox = %SeedInput
 @onready var width_input: SpinBox = %WidthInput
 @onready var height_input: SpinBox = %HeightInput
@@ -76,8 +75,8 @@ func _ready():
 ## React to click events to try to select points on the tilemap.
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("left_mouse_button"):
-		var pos: Vector2 = tilemap.get_local_mouse_position()
-		var cell: Vector2 = tilemap.local_to_map(pos)
+		var pos := main_tile_layer.get_local_mouse_position()
+		var cell := main_tile_layer.local_to_map(pos)
 		_tilemap_cell_selected(cell)
 
 
@@ -86,7 +85,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func generate_maze():
 	seed(int(seed_input.value))  # Update randomization with the specified seed
 	# Reset TileMap and related maze vars to a blank state, and update UI
-	tilemap.clear()
+	main_tile_layer.clear()
+	path_tile_layer.clear()
+	points_tile_layer.clear()
 	start_point = Vector2i(NAN, NAN)
 	end_points = []
 	_updated_map_points()
@@ -95,14 +96,16 @@ func generate_maze():
 	var tilemap_dimensions := maze_dimensions * 2 + Vector2i.ONE
 	for i in tilemap_dimensions.x:
 		for j in tilemap_dimensions.y:
-			tilemap.set_cell(
-				Layers.MAIN, Vector2i(i, j), TILE_SET_SOURCE_ID, TILE_ATLAS_COORDS[Tiles.WALL]
+			main_tile_layer.set_cell(
+				Vector2i(i, j), TILE_SET_SOURCE_ID, TILE_ATLAS_COORDS[Tiles.WALL]
 			)
 
 	# Scale visually to fit new maze size comfortably on the screen
 	var new_scale := Vector2(initial_dimensions) / Vector2(maze_dimensions)
 	new_scale = Vector2(min(new_scale.x, new_scale.y), min(new_scale.x, new_scale.y))
-	tilemap.scale = new_scale
+	main_tile_layer.scale = new_scale
+	path_tile_layer.scale = new_scale
+	points_tile_layer.scale = new_scale
 
 	# Set up initial state of unvisited maze nodes and carve out a tile for each one on the tilemap
 	maze_nodes.resize(maze_dimensions.x)
@@ -113,8 +116,7 @@ func generate_maze():
 		maze_nodes[i] = maze_nodes_inner
 
 		for j in maze_nodes_inner.size():
-			tilemap.set_cell(
-				Layers.MAIN,
+			main_tile_layer.set_cell(
 				Vector2i((i * 2) + 1, (j * 2) + 1),  # Adjust maze node pos to tilemap cell pos
 				TILE_SET_SOURCE_ID,
 				TILE_ATLAS_COORDS[Tiles.GROUND]
@@ -139,8 +141,7 @@ func generate_maze():
 			)]
 			var neighbor_node := current_node + neighbor_offset
 			# Open the wall between both nodes, adjusting for tilemap position
-			tilemap.set_cell(
-				Layers.MAIN,
+			main_tile_layer.set_cell(
 				Vector2i((current_node.x * 2) + 1, (current_node.y * 2) + 1) + neighbor_offset,
 				TILE_SET_SOURCE_ID,
 				TILE_ATLAS_COORDS[Tiles.GROUND]
@@ -186,25 +187,23 @@ func _get_unvisited_neighbor_offsets(origin_node_pos: Vector2i) -> Array[Vector2
 ## 2. If this cell is empty and there is a start point already, make it an end point
 ## 3. If this cell is a start or end point, remove it
 func _tilemap_cell_selected(cell: Vector2i) -> void:
-	if tilemap.get_cell_atlas_coords(Layers.MAIN, cell) != TILE_ATLAS_COORDS[Tiles.GROUND]:
+	if main_tile_layer.get_cell_atlas_coords(cell) != TILE_ATLAS_COORDS[Tiles.GROUND]:
 		return  # Not a valid cell
 
-	var existing_cell_atlas_coords := tilemap.get_cell_atlas_coords(Layers.POINTS, cell)
+	var existing_cell_atlas_coords := points_tile_layer.get_cell_atlas_coords(cell)
 	if existing_cell_atlas_coords == Vector2i(-1, -1):  # Empty cell
 		if start_point == Vector2i(NAN, NAN):
 			start_point = cell
-			tilemap.set_cell(
-				Layers.POINTS, cell, TILE_SET_SOURCE_ID, TILE_ATLAS_COORDS[Tiles.START]
-			)
+			points_tile_layer.set_cell(cell, TILE_SET_SOURCE_ID, TILE_ATLAS_COORDS[Tiles.START])
 		else:
 			end_points.push_back(cell)
-			tilemap.set_cell(Layers.POINTS, cell, TILE_SET_SOURCE_ID, TILE_ATLAS_COORDS[Tiles.END])
+			points_tile_layer.set_cell(cell, TILE_SET_SOURCE_ID, TILE_ATLAS_COORDS[Tiles.END])
 	else:  # Start or end point is already here
 		if existing_cell_atlas_coords == TILE_ATLAS_COORDS[Tiles.START]:
 			start_point = Vector2i(NAN, NAN)
 		else:
 			end_points.erase(cell)
-		tilemap.erase_cell(Layers.POINTS, cell)
+		points_tile_layer.erase_cell(cell)
 
 	_updated_map_points()
 
@@ -220,7 +219,7 @@ func _updated_map_points() -> void:
 
 ## Solve the maze with both AStar and DijkstraMap, from scratch.
 func solve_maze() -> void:
-	tilemap.clear_layer(Layers.PATH)
+	path_tile_layer.clear()
 
 	if start_point == Vector2i(NAN, NAN) || end_points.is_empty():
 		return
@@ -233,26 +232,26 @@ func solve_maze() -> void:
 ## method)
 func _solve_maze_for_dijkstra() -> void:
 	var tilemap_dimensions := maze_dimensions * 2 + Vector2i.ONE
-	var use_grid_methods = use_grid_methods_button.button_pressed
+	var use_grid_methods := use_grid_methods_button.button_pressed
 
 	var dijkstra_init_time_marker := Time.get_ticks_msec()
 
 	# Dijkstra Step 1: set up the DijkstraMap (graph)
 
-	var dijkstra_map = DijkstraMap.new()
+	var dijkstra_map := DijkstraMap.new()
 	var dijkstra_start_point: int
 	var dijkstra_end_points := PackedInt32Array()
 
 	# If using the grid shortcut method, we must store the points in a dictionary so we know how
 	# they map to cell positions.
-	var dijkstra_grid_points_to_ids := {}
-	var dijkstra_grid_ids_to_points := {}
+	var dijkstra_grid_points_to_ids: Dictionary[Vector2i, int] = {}
+	var dijkstra_grid_ids_to_points: Dictionary[int, Vector2i] = {}
 
 	# Set up & solve DijkstraMap using the grid shortcut method
 	if use_grid_methods:
-		dijkstra_grid_points_to_ids = dijkstra_map.add_square_grid(
+		dijkstra_grid_points_to_ids.assign(dijkstra_map.add_square_grid(
 			Rect2(0, 0, tilemap_dimensions.x, tilemap_dimensions.y), -1, 1.0, INF
-		)
+		))
 		# Update terrains for walls and ground tiles so pathfinding will be accurate
 		for pos in dijkstra_grid_points_to_ids.keys():
 			var id: int = dijkstra_grid_points_to_ids[pos]
@@ -261,9 +260,9 @@ func _solve_maze_for_dijkstra() -> void:
 			# Set reverse mapping for convenience.
 			dijkstra_grid_ids_to_points[id] = pos
 		# Get start & end points
-		dijkstra_start_point = dijkstra_grid_points_to_ids[Vector2(start_point)]
+		dijkstra_start_point = dijkstra_grid_points_to_ids[start_point]
 		for end_point in end_points:
-			dijkstra_end_points.push_back(dijkstra_grid_points_to_ids[Vector2(end_point)])
+			dijkstra_end_points.push_back(dijkstra_grid_points_to_ids[end_point])
 		# Run pathfinding
 		(
 			dijkstra_map
@@ -289,8 +288,8 @@ func _solve_maze_for_dijkstra() -> void:
 		for i in tilemap_dimensions.x - 1:
 			for j in tilemap_dimensions.y - 1:
 				var tilemap_coords := Vector2i(i, j)
-				var tile_atlas_coords: Vector2i = tilemap.get_cell_atlas_coords(
-					Layers.MAIN, tilemap_coords
+				var tile_atlas_coords: Vector2i = main_tile_layer.get_cell_atlas_coords(
+					tilemap_coords
 				)
 				var tile_type: int = TILE_ATLAS_COORDS.find_key(tile_atlas_coords)
 
@@ -349,9 +348,7 @@ func _solve_maze_for_dijkstra() -> void:
 				cell_pos = Vector2i(dijkstra_grid_ids_to_points[dijkstra_id])
 			else:
 				cell_pos = dijkstra_id_to_tilemap_coords(dijkstra_id, tilemap_dimensions.x)
-			tilemap.set_cell(
-				Layers.PATH, cell_pos, TILE_SET_SOURCE_ID, TILE_ATLAS_COORDS[Tiles.PATH]
-			)
+			path_tile_layer.set_cell(cell_pos, TILE_SET_SOURCE_ID, TILE_ATLAS_COORDS[Tiles.PATH])
 
 	var dijkstra_setup_time := dijkstra_setup_time_marker - dijkstra_init_time_marker
 	var dijkstra_solve_time := dijkstra_solve_time_marker - dijkstra_setup_time_marker
@@ -376,7 +373,7 @@ func _solve_maze_for_astar() -> void:
 		# AStar Step 1: set up the AStarGrid2D (graph)
 		var astar_grid = AStarGrid2D.new()
 		astar_grid.region = Rect2i(0, 0, tilemap_dimensions.x, tilemap_dimensions.y)
-		astar_grid.cell_size = tilemap.tile_set.tile_size
+		astar_grid.cell_size = main_tile_layer.tile_set.tile_size
 		astar_grid.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
 		astar_grid.update()
 
@@ -384,8 +381,8 @@ func _solve_maze_for_astar() -> void:
 		for i in tilemap_dimensions.x:
 			for j in tilemap_dimensions.y:
 				var tilemap_coords := Vector2i(i, j)
-				var tile_atlas_coords: Vector2i = tilemap.get_cell_atlas_coords(
-					Layers.MAIN, tilemap_coords
+				var tile_atlas_coords: Vector2i = main_tile_layer.get_cell_atlas_coords(
+					tilemap_coords
 				)
 				var tile_type: int = TILE_ATLAS_COORDS.find_key(tile_atlas_coords)
 				if tile_type == Tiles.WALL:
@@ -413,8 +410,8 @@ func _solve_maze_for_astar() -> void:
 		for i in tilemap_dimensions.x - 1:
 			for j in tilemap_dimensions.y - 1:
 				var tilemap_coords := Vector2i(i, j)
-				var tile_atlas_coords: Vector2i = tilemap.get_cell_atlas_coords(
-					Layers.MAIN, tilemap_coords
+				var tile_atlas_coords: Vector2i = main_tile_layer.get_cell_atlas_coords(
+					tilemap_coords
 				)
 				var tile_type = TILE_ATLAS_COORDS.find_key(tile_atlas_coords)
 
@@ -476,9 +473,7 @@ func dijkstra_id_to_tilemap_coords(id: int, map_width: int) -> Vector2i:
 ## If possible, get the tile type given a cell position within the tilemap.
 ## Returns -1 if the type isn't found.
 func get_tile_type_from_cell_position(cell_pos: Vector2i) -> int:
-	var tile_type: int = TILE_ATLAS_COORDS.find_key(
-		tilemap.get_cell_atlas_coords(Layers.MAIN, cell_pos)
-	)
+	var tile_type: int = TILE_ATLAS_COORDS.find_key(main_tile_layer.get_cell_atlas_coords(cell_pos))
 	# Explicit null check to include 0 case
 	return tile_type if tile_type != null else -1
 

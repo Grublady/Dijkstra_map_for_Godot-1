@@ -8,16 +8,15 @@ extends Node
 
 ## List all types of tiles used in the example.
 enum Tiles { DEFAULT, WALL, ENDPOINT }
-const TILE_LAYER = 0  ## This is the only TileMap layer used in this example
 const TILE_SET_SOURCE_ID = 1  ## ID of the TileSetSource used in our TileSet to provide tile options
 ## Known tile positions within the TileSet atlas.
-const TILE_ATLAS_COORDS := {
+const TILE_ATLAS_COORDS: Dictionary[Tiles, Vector2i] = {
 	Tiles.DEFAULT: Vector2i(0, 0),
 	Tiles.WALL: Vector2i(2, 0),
 	Tiles.ENDPOINT: Vector2i(3, 0)
 }
 ## Available demo project paths mapped to simplified names.
-const PROJECT_DEMOS = {
+const PROJECT_DEMOS: Dictionary[String, String] = {
 	"visualization_demo": "res://addons/dijkstra-map/visualization_demo/visualization.tscn",
 	"turn_based_movement": "res://project_examples/turn_based_example/turn_based_example.tscn",
 	"shared_movement": "res://project_examples/shared_movement_example/shared_movement_example.tscn",
@@ -28,8 +27,8 @@ const PROJECT_DEMOS = {
 
 var dijkstra_map := DijkstraMap.new() ## DijkstraMap used in this menu for pathfinding
 ## Sprite2D to render the generated Dijkstra image onto (for debugging purposes).
+@onready var tilemap: TileMapLayer = %TileMap
 @onready var dijkstra_image_preview : Sprite2D = $DijkstraImagePreview
-@onready var tilemap : TileMap = $TileMap ## TileMap node used as a background visual effect
 @onready var map_bounds : Rect2i = tilemap.get_used_rect() ## Just the used portion of the tilemap
 @onready var tilemap_shader_mat : ShaderMaterial = tilemap.material ## shader to apply image to
 
@@ -44,7 +43,7 @@ func _ready():
 	for i in map_bounds.size.x - 1:
 		for j in map_bounds.size.y - 1:
 			var tilemap_coords := Vector2i(i, j)
-			var tile_atlas_coords : Vector2i = tilemap.get_cell_atlas_coords(TILE_LAYER, tilemap_coords)
+			var tile_atlas_coords := tilemap.get_cell_atlas_coords(tilemap_coords)
 			var tile_type : int = TILE_ATLAS_COORDS.find_key(tile_atlas_coords)
 
 			if tile_type == Tiles.DEFAULT or tile_type == Tiles.ENDPOINT:
@@ -52,7 +51,7 @@ func _ready():
 				dijkstra_map.add_point(dijkstra_id, tile_type)
 
 				# Check top and left neighbors and create connections if possible
-				var top_and_left_neighbor_coords := [
+				var top_and_left_neighbor_coords: Array[Vector2i] = [
 					tilemap_coords - Vector2i(1, 0),
 					tilemap_coords - Vector2i(0, 1)
 				]
@@ -113,6 +112,6 @@ func dijkstra_id_to_tilemap_coords(id: int) -> Vector2i:
 
 ## Load up one of the demo projects by name.
 func load_project_demo(project_name: String) -> void:
-	var project_path : String = PROJECT_DEMOS.get(project_name)
+	var project_path: String = PROJECT_DEMOS.get(project_name)
 	if project_path:
 		get_tree().change_scene_to_file(project_path)
